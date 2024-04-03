@@ -18,6 +18,8 @@
 #include <fstream>
 #include "WordList.h"
 #include "WordDataList.h"
+#include "WordSTLSeq.h"
+#include "WordCList.h"
 // #include "WordData.h"        app only knows about the lists!
 
 using namespace std;
@@ -29,7 +31,7 @@ void displayMenu();
 /*   Description: Displays the menu on the screen.                   */
 /*********************************************************************/
 
-void printEverything(ifstream &inf,WordList *TheList);
+void printEverything(ifstream &inf,WordList *&TheList);
 /*********************************************************************/
 /*                                                                   */
 /*   Function Name: printEverything                                  */
@@ -42,71 +44,105 @@ void printEverything(ifstream &inf,WordList *TheList);
 /*********************************************************************/
 
 
-int main(int argc,char *argv[])
-{ ifstream inf;
-  WordList *TheList;
-  if(argc>1) //if there was an input on the command line
-    {
-      inf.open(argv[1]); //try and open the file
-      if (inf.fail())       //if the file does not open
-        {                    //terminate
-          cout<<"Sorry, the file failed to open."<<endl;
-          return 0;
+int main(int argc, char *argv[]) {
+    ifstream inf;
+    WordList *TheList = nullptr;
+
+    // Check if a file name was provided as a command line argument
+    if (argc > 1) {
+        inf.open(argv[1]);
+        if (inf.fail()) {
+            cout << "Sorry, the file \"" << argv[1] << "\" failed to open." << endl;
+            return 1;
         }
-      printEverything(inf,TheList);
-      return 0;
+        // Process the file with a default WordList object
+        TheList = new WordDataList(); // Default choice for command line argument case
+        processFile(inf, TheList);    // Process the file
+        delete TheList;               // Clean up
+        inf.close();                  // Close the file
+        return 0;                     // Exit after processing the file
     }
 
-  char selection;
-  string fileName;
-  cout<<"Please enter a file name:"<<endl;
-  getline(cin,fileName);
-  inf.open(fileName.c_str());
-  
-  // TheList is a pointer to a WordList that is pointed at a WordList subclass
-  TheList=new WordDataList;
-  TheList->parseIntoList(inf);  // Apply polymorphism
-  while (true)
-    {
-      displayMenu();
-      cin>>selection;
-      switch(selection)
-        { case '1':
-            TheList->printIteratively();
-            break;
-          case '2':
-            TheList->printRecursively();
-            break;
-          case '3':
-            TheList->printPtr();
-            break;
-          case '4':
-            cout<<"Goodbye"<<endl;
-            return 0;
-          default:
-            cout<<"I cannot understand "<<selection<<".  Try again."<<endl;
-            break;
-        }
+    // No command line argument provided, enter interactive mode
+    string fileName;
+    cout << "Please enter a file name: ";
+    getline(cin, fileName);
+    inf.open(fileName.c_str());
+
+    if (inf.fail()) {
+        cout << "Failed to open the file: " << fileName << endl;
+        return 1;
     }
-  
-  return 0;
+
+    char selection = '0'; // Initialize selection
+    while (selection != '8') { // '8' is the exit option
+        displayMenu();
+        cin >> selection;
+        cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Clear the newline character from the buffer
+
+        // Clean up any previously used WordList
+        if (TheList != nullptr) {
+            delete TheList;
+            TheList = nullptr;
+        }
+
+        switch (selection) {
+            case '1':
+            case '2':
+            case '3':
+                TheList = new WordDataList();
+                break;
+            case '4':
+            case '5':
+                TheList = new WordCList();
+                break;
+            case '6':
+            case '7':
+                TheList = new WordSTLSeq();
+                break;
+            case '8': // Exit option
+                cout << "Exiting the program." << endl;
+                continue; // Skip the rest of the loop and proceed to cleanup
+            default:
+                cout << "Invalid selection, please try again." << endl;
+                continue; // Prompt menu again
+        }
+
+        // Common processing for non-exit selections
+        inf.clear(); // Clear any error flags
+        inf.seekg(0, ios::beg); // Rewind file
+        processFile(inf, TheList); // Process the file according to the selected option
+    }
+
+    if (TheList != nullptr) {
+        delete TheList; // Final cleanup
+    }
+    inf.close(); // Ensure the file is closed before exiting
+
+    return 0;
 }
 
-void displayMenu()
-{
-  cout<<endl;
-  cout<<"How do you want to print your sentence elements?"<<endl;
-  cout<<"------------------------------------------------"<<endl;
-  cout<<"1. Object Array Iterative"<<endl;
-  cout<<"2. Object Array Recursive"<<endl;
-  cout<<"3. Object Array Pointer Recursive"<<endl;
-  cout<<"4. Quit"<<endl;
+void processFile(ifstream &inf, WordList* &TheList) {
+    TheList->parseIntoList(inf);
+    // additional logic here for different print options // tbd
 }
 
-void printEverything(ifstream &inf,WordList *TheList)
-{ TheList=new WordDataList;
-  TheList->parseIntoList(inf);
-  TheList->printIteratively();
-  TheList->printRecursively();
-  TheList->printPtr();
+void displayMenu() {
+    cout << "\nSelect an operation:" << endl;
+    cout << "1: Object Array Iterative" << endl;
+    cout << "2: Object Array Recursive" << endl;
+    cout << "3: Object Array Pointer Only" << endl;
+    cout << "4: Circular List Iterator" << endl;
+    cout << "5: Circular List Iterator Recursive" << endl;
+    cout << "6: STL Vector Iterative" << endl;
+    cout << "7: STL Vector Recursive" << endl;
+    cout << "8: Exit" << endl;
+}
+
+void printEverything(ifstream &inf, WordList *&TheList) {
+    TheList->parseIntoList(inf);
+    TheList->printIteratively();
+    TheList->printRecursively();
+    TheList->printPtr();
+    // Check if TheList supports printPtr before attempting to call it
 }
